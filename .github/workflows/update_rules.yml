@@ -1,14 +1,12 @@
 name: Update Emby Rules Professional
 on:
   schedule:
-    - cron: '0 20 * * *'
-  workflow_dispatch: 
+    - cron: '0 20 * * *' # 每天北京时间凌晨4点自动更新
+  workflow_dispatch:      # 允许手动强制更新
 
 jobs:
   merge_rules:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -16,12 +14,23 @@ jobs:
       - name: Process Rules
         run: |
           mkdir -p rules
+          
+          # 1. 抓取 Blackmatrix7 维护的专业 Emby 规则 (包含大部分公认地址)
           curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Emby/Emby.list > rules/temp.list
+          
+          # 2. 如果你的 private_emby.list 里有内容，合并进来
           if [ -f private_emby.list ]; then
             echo "" >> rules/temp.list
             cat private_emby.list >> rules/temp.list
           fi
+
+          # 3. 清洗数据：
+          # 去掉注释行 (#)
+          # 去掉空行
+          # 排序并去重
           grep -v '^#' rules/temp.list | grep -v '^\s*$' | sort -u > rules/emby_final.list
+          
+          # 4. 在文件开头加上描述
           sed -i '1i # Emby Combined Rules' rules/emby_final.list
           sed -i '2i # Last Update: '$(date +%Y-%m-%d) rules/emby_final.list
 
