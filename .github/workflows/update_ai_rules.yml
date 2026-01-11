@@ -1,4 +1,4 @@
-name: Update Dual AI Rules
+name: Update All My Rules
 on:
   schedule:
     - cron: '0 21 * * *'
@@ -8,31 +8,39 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # 必须有这个，否则无法生成文件
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Process AI Rules
+      - name: Process Rules
         run: |
           mkdir -p rules
           
-          # --- 1. 国外 AI (改名为 AI_Proxy.list) ---
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list > rules/tmp_g.txt
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Claude/Claude.list >> rules/tmp_g.txt
-          # (去重并改名)
-          grep -v '^#' rules/tmp_g.txt | grep -v '^\s*$' | sort -u > rules/AI_Proxy.list
+          # --- 1. Emby 规则 (规范命名: Emby_Media.list) ---
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Emby/Emby.list > rules/tmp_emby.txt
+          if [ -f private_emby.list ]; then cat private_emby.list >> rules/tmp_emby.txt; fi
+          grep -v '^#' rules/tmp_emby.txt | grep -v '^\s*$' | sort -u > rules/Emby_Media.list
 
-          # --- 2. 国内 AI (改名为 AI_Direct.list) ---
-          echo "DOMAIN-SUFFIX,deepseek.com" > rules/tmp_i.txt
-          echo "DOMAIN-SUFFIX,moonshot.cn" >> rules/tmp_i.txt
-          # (去重并改名)
-          grep -v '^#' rules/tmp_i.txt | grep -v '^\s*$' | sort -u > rules/AI_Direct.list
+          # --- 2. 国外 AI (规范命名: AI_Proxy.list) ---
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list > rules/tmp_aig.txt
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Claude/Claude.list >> rules/tmp_aig.txt
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Gemini/Gemini.list >> rules/tmp_aig.txt
+          grep -v '^#' rules/tmp_aig.txt | grep -v '^\s*$' | sort -u > rules/AI_Proxy.list
 
+          # --- 3. 国内 AI (规范命名: AI_Direct.list) ---
+          echo "DOMAIN-SUFFIX,deepseek.com" > rules/tmp_aid.txt
+          echo "DOMAIN-SUFFIX,moonshot.cn" >> rules/tmp_aid.txt
+          echo "DOMAIN-SUFFIX,kimi.ai" >> rules/tmp_aid.txt
+          grep -v '^#' rules/tmp_aid.txt | grep -v '^\s*$' | sort -u > rules/AI_Direct.list
+
+          # 清理临时文件
+          rm rules/tmp_*.txt
 
       - name: Push Changes
         run: |
-          git add rules/*.list  # 这会添加 rules 文件夹下所有 .list 后缀的文件
-          git commit -m "Update Rules" || exit 0
+          git config --local user.email "actions@github.com"
+          git config --local user.name "RuleBot"
+          git add rules/*.list
+          git commit -m "Update Rules: $(date +%Y-%m-%d)" || exit 0
           git push
-
