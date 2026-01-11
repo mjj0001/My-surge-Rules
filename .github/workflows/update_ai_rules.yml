@@ -17,32 +17,22 @@ jobs:
         run: |
           mkdir -p rules
           
-          # --- 1. 国外 AI 聚合 (需要代理) ---
-          # 抓取主流规则
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list > rules/tmp_global.txt
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Claude/Claude.list >> rules/tmp_global.txt
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Gemini/Gemini.list >> rules/tmp_global.txt
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Copilot/Copilot.list >> rules/tmp_global.txt
-          # 清洗去重
-          grep -v '^#' rules/tmp_global.txt | grep -v '^\s*$' | sort -u > rules/ai_global.list
-          sed -i '1i # AI Global Rules (Proxy Required)\n# Update: '$(date +%Y-%m-%d) rules/ai_global.list
+          # --- 1. 国外 AI (改名为 AI_Proxy.list) ---
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list > rules/tmp_g.txt
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Claude/Claude.list >> rules/tmp_g.txt
+          # (去重并改名)
+          grep -v '^#' rules/tmp_g.txt | grep -v '^\s*$' | sort -u > rules/AI_Proxy.list
 
-          # --- 2. 国内 AI 聚合 (建议直连) ---
-          # 手动添加国内主流 AI 域名
-          echo "DOMAIN-SUFFIX,deepseek.com" > rules/tmp_internal.txt
-          echo "DOMAIN-SUFFIX,moonshot.cn" >> rules/tmp_internal.txt
-          echo "DOMAIN-SUFFIX,kimi.ai" >> rules/tmp_internal.txt
-          echo "DOMAIN-SUFFIX,baichuan-ai.com" >> rules/tmp_internal.txt
-          echo "DOMAIN-SUFFIX,hunyuan.tencent.com" >> rules/tmp_internal.txt
-          echo "DOMAIN-SUFFIX,tongyi.aliyun.com" >> rules/tmp_internal.txt
-          # 清洗去重
-          grep -v '^#' rules/tmp_internal.txt | grep -v '^\s*$' | sort -u > rules/ai_internal.list
-          sed -i '1i # AI Internal Rules (Direct Recommended)\n# Update: '$(date +%Y-%m-%d) rules/ai_internal.list
+          # --- 2. 国内 AI (改名为 AI_Direct.list) ---
+          echo "DOMAIN-SUFFIX,deepseek.com" > rules/tmp_i.txt
+          echo "DOMAIN-SUFFIX,moonshot.cn" >> rules/tmp_i.txt
+          # (去重并改名)
+          grep -v '^#' rules/tmp_i.txt | grep -v '^\s*$' | sort -u > rules/AI_Direct.list
+
 
       - name: Push Changes
         run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "AI-Rule-Bot"
-          git add rules/ai_global.list rules/ai_internal.list
-          git commit -m "Update Dual AI rules: $(date +%Y-%m-%d)" || exit 0
+          git add rules/*.list  # 这会添加 rules 文件夹下所有 .list 后缀的文件
+          git commit -m "Update Rules" || exit 0
           git push
+
