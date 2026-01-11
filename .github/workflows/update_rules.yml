@@ -1,0 +1,34 @@
+name: Update Emby Rules Professional
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch: 
+
+jobs:
+  merge_rules:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Process Rules
+        run: |
+          mkdir -p rules
+          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Emby/Emby.list > rules/temp.list
+          if [ -f private_emby.list ]; then
+            echo "" >> rules/temp.list
+            cat private_emby.list >> rules/temp.list
+          fi
+          grep -v '^#' rules/temp.list | grep -v '^\s*$' | sort -u > rules/emby_final.list
+          sed -i '1i # Emby Combined Rules' rules/emby_final.list
+          sed -i '2i # Last Update: '$(date +%Y-%m-%d) rules/emby_final.list
+
+      - name: Push to Repo
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "RuleBot"
+          git add rules/emby_final.list
+          git commit -m "Updated Emby rules: $(date +%Y-%m-%d)" || exit 0
+          git push
