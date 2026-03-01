@@ -1,41 +1,85 @@
 name: Update All My Rules
+
 on:
   schedule:
     - cron: '0 21 * * *'
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 必须有这个，否则无法生成文件
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Process Rules
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p rules
-          
-          # --- 1. Emby 规则 (规范命名: Emby_Media.list) ---
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Emby/Emby.list > rules/tmp_emby.txt
-          if [ -f private_emby.list ]; then cat private_emby.list >> rules/tmp_emby.txt; fi
-          grep -v '^#' rules/tmp_emby.txt | grep -v '^\s*$' | sort -u > rules/Emby_Media.list
 
-          # --- 2. 国外 AI (规范命名: AI_Proxy.list) ---
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list > rules/tmp_aig.txt
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Claude/Claude.list >> rules/tmp_aig.txt
-          curl -sL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Gemini/Gemini.list >> rules/tmp_aig.txt
-          grep -v '^#' rules/tmp_aig.txt | grep -v '^\s*$' | sort -u > rules/AI_Proxy.list
+          # helper: only append when source is reachable
+          fetch_append() {
+            local name="$1"
+            local url="$2"
+            if curl -fsSL "$url" >> "$TMP_AI"; then
+              echo "[OK] $name"
+              echo >> "$TMP_AI"
+            else
+              echo "[SKIP] $name ($url)"
+            fi
+          }
 
-          # --- 3. 国内 AI (规范命名: AI_Direct.list) ---
-          echo "DOMAIN-SUFFIX,deepseek.com" > rules/tmp_aid.txt
-          echo "DOMAIN-SUFFIX,moonshot.cn" >> rules/tmp_aid.txt
-          echo "DOMAIN-SUFFIX,kimi.ai" >> rules/tmp_aid.txt
-          grep -v '^#' rules/tmp_aid.txt | grep -v '^\s*$' | sort -u > rules/AI_Direct.list
+          # --- 1) Emby 规则 ---
+          TMP_EMBY="rules/tmp_emby.txt"
+          : > "$TMP_EMBY"
+          curl -fsSL https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Emby/Emby.list >> "$TMP_EMBY"
+          [ -f private_emby.list ] && cat private_emby.list >> "$TMP_EMBY"
+          grep -v '^#' "$TMP_EMBY" | grep -v '^\s*$' | sort -u > rules/Emby_Media.list
 
-          # 清理临时文件
-          rm rules/tmp_*.txt
+          # --- 2) 国外 AI 规则 ---
+          TMP_AI="rules/tmp_ai.txt"
+          : > "$TMP_AI"
+
+          # Blackmatrix7 基础源
+          fetch_append "OpenAI"      "https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list"
+          fetch_append "Claude"      "https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Claude/Claude.list"
+          fetch_append "Gemini"      "https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Gemini/Gemini.list"
+          fetch_append "Perplexity"  "https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Perplexity/Perplexity.list"
+          fetch_append "Poe"         "https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Poe/Poe.list"
+          fetch_append "Copilot"     "https://raw.githubusercontent.com/Blackmatrix7/ios_rule_script/master/rule/Surge/Copilot/Copilot.list"
+
+          # 外部源（可能被 Cloudflare 拦截；失败时自动跳过）
+          fetch_append "Kelee AI"    "https://kelee.one/Tool/Loon/Lsr/AI.lsr"
+
+          # 保留仓库中已有 AI_Proxy 规则（避免被覆盖丢失）
+          [ -f rules/AI_Proxy.list ] && cat rules/AI_Proxy.list >> "$TMP_AI"
+          [ -f rules/AI_Custom.list ] && cat rules/AI_Custom.list >> "$TMP_AI"
+
+          # 过滤可识别规则 + 去重
+          grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR|IP-CIDR6|IP-ASN|AND|OR|NOT),' "$TMP_AI" \
+            | sed 's/\r$//' \
+            | grep -v '^\s*$' \
+            | sort -u > rules/AI_Proxy.list
+
+          # --- 3) 国内 AI 规则 ---
+          TMP_DIRECT="rules/tmp_ai_direct.txt"
+          : > "$TMP_DIRECT"
+          {
+            echo "DOMAIN-SUFFIX,deepseek.com"
+            echo "DOMAIN-SUFFIX,moonshot.cn"
+            echo "DOMAIN-SUFFIX,kimi.ai"
+          } >> "$TMP_DIRECT"
+          [ -f rules/AI_Direct.list ] && cat rules/AI_Direct.list >> "$TMP_DIRECT"
+          [ -f rules/AI_Direct_Custom.list ] && cat rules/AI_Direct_Custom.list >> "$TMP_DIRECT"
+          grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR|IP-CIDR6|IP-ASN),' "$TMP_DIRECT" \
+            | sed 's/\r$//' \
+            | grep -v '^\s*$' \
+            | sort -u > rules/AI_Direct.list
+
+          rm -f rules/tmp_*.txt
 
       - name: Push Changes
         run: |
