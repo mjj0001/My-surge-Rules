@@ -1,0 +1,28 @@
+name: Daily Sync Surge Rules
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync Rules
+        run: |
+          mkdir -p rules
+          curl -sL https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/AI/AI.list -o rules/AI_Proxy.list
+          curl -sL https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Emby/Emby.list -o rules/Emby_Media.list
+          # 可以根据需要添加更多
+          echo "Sync completed at $(date)"
+
+      - name: Commit and Push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add rules/*.list
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto sync rules: $(date +'%Y-%m-%d %H:%M')" && git push)
