@@ -4,8 +4,7 @@
 #!icon=https://iili.io/BDPVJ1I.png
 
 [MITM]
-hostname = %APPEND%
-pluginhub.kelee.one, hub.kelee.one, surge.qingr.moe
+hostname = %APPEND% pluginhub.kelee.one, hub.kelee.one, surge.qingr.moe
 
 [Body Rewrite]
 http-response ^https?://(pluginhub|hub)\.kelee\.one/ loon://import\?plugin= surge:///install-module?url=
