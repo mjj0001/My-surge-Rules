@@ -1,0 +1,15 @@
+#!name=插件模块跳转-Surge
+#!desc=可莉插件中心/可莉插件模块跳转，在 Surge 中点击 loon:// 或 egern:/// 安装链接自动转为 surge:/// 安装（iOS 5.10.0+，需 MITM 已勾选这三个域名）
+#!homepage=https://hub.kelee.one
+#!icon=https://iili.io/BDPVJ1I.png
+
+[MITM]
+hostname = %APPEND%
+pluginhub.kelee.one, hub.kelee.one, surge.qingr.moe
+
+[Body Rewrite]
+http-response ^https?://(pluginhub|hub)\.kelee\.one/ loon://import\?plugin= surge:///install-module?url=
+http-response ^https?://(pluginhub|hub)\.kelee\.one/ egern:///modules/new\?url= surge:///install-module?url=
+http-response ^https?://surge\.qingr\.moe/ egern:///modules/new\?url= surge:///install-module?url=
+http-response ^https?://surge\.qingr\.moe/ loon://import\?plugin= surge:///install-module?url=
+http-response ^https?://surge\.qingr\.moe/ loon://import\?script= surge:///import-script?url=
